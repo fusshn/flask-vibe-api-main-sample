@@ -135,6 +135,7 @@ def create_app():
         app.logger.error("資料庫連線錯誤: %s", error, exc_info=True)
         return json_response(500, "資料庫暫時連不上", None)
 
+    @app.get("/")
     @app.get("/api/health")
     def health_check():
         return json_response(

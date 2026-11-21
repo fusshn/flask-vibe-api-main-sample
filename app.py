@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from flask import Flask, Response, request
@@ -43,11 +44,28 @@ def create_app():
 
     db.init_app(app)
 
+    def normalize_origin(value: str) -> str:
+        """將網址正規化為瀏覽器 Origin 格式：scheme://host[:port]（去除路徑與結尾斜線）。"""
+        value = value.strip().strip('"').strip("'")
+        if not value:
+            return ""
+        parsed = urlparse(value)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+        return value.rstrip("/").lower()
+
+    # WEB_ORIGIN 支援以逗號（或空白）分隔多個網域，例如：
+    # WEB_ORIGIN=https://xxx.github.io/, http://127.0.0.1:8000
+    allowed_origins = {
+        normalize_origin(o)
+        for o in re.split(r"[,\s]+", os.getenv("WEB_ORIGIN", ""))
+        if normalize_origin(o)
+    }
+
     def is_allowed_origin(origin: str | None) -> bool:
         if not origin:
             return False
-        web_origin = os.getenv("WEB_ORIGIN")
-        if web_origin and origin == web_origin.strip():
+        if normalize_origin(origin) in allowed_origins:
             return True
         if re.match(r"^http://127\.0\.0\.1(:\d+)?$", origin):
             return True
